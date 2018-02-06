@@ -14,7 +14,19 @@ let pop = Stack.pop
 let ord thechar = int_of_char thechar
 type binop_t = bigint -> bigint -> bigint
 
-let print_number number = printf "%s\n%!" (string_of_bigint number)
+let print_number number = 
+    let strnum = (string_of_bigint number) in
+    let len = (String.length strnum) in
+    if len < 69
+    then printf "%s\n%!" (string_of_bigint number)
+    else let rec print_number' i = 
+            let rem_size = len - i in
+            if rem_size >= 69
+            then (printf "%s\\\n%!" (String.sub strnum i 69); print_number' (i + 69))
+            else (printf "%s\n%!" (String.sub strnum i rem_size))
+         in print_number' 0
+
+
 
 let print_stackempty () = printf "stack empty\n%!"
 
@@ -58,7 +70,7 @@ let toploop (thestack: stack_t) inputchannel =
     let rec toploop () = 
         try  let nexttoken = Scanner.scanner scanbuf
              in  (match nexttoken with
-                 | Number number       -> push number thestack
+                 | Number number       -> push number thestack;
                  | Regoper (oper, reg) -> executereg thestack oper reg
                  | Operator oper       -> execute thestack oper
                  );

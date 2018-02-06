@@ -11,8 +11,8 @@ module Bigint = struct
 
     let car       = List.hd
     let cdr       = List.tl
-    let map       = List.map
     let reverse   = List.rev
+    let map       = List.map
     let strcat    = String.concat
     let strlen    = String.length
     let strsub    = String.sub
@@ -45,22 +45,63 @@ module Bigint = struct
                    in  strcat ""
                        ((if sign = Pos then "" else "-") ::
                         (map string_of_int reversed))
-
+
+    let trimzeros list =
+        let rec trimzeros' list' = match list' with
+            | []       -> []
+            | [0]      -> []
+            | car::cdr ->
+                    let cdr' = trimzeros' cdr
+                    in  match car, cdr' with
+                        | 0, [] -> []
+                        | car, cdr' -> car::cdr'
+        in trimzeros' list
+    
+    let rec cmp' (l1 : int list) (l2 : int list) = 
+        if List.length l1 < List.length l2 then -1
+        else if List.length l1 > List.length l2 then 1
+        else match (l1, l2) with
+            | [], [] -> 0
+            | [], l2 -> -1
+            | l1, [] -> 1
+            | l1, l2 -> if car (reverse l1) < car (reverse l2) then -1
+                        else if car (reverse l1) > car (reverse l2) then 1
+                        else cmp' (reverse (cdr (reverse l1))) (reverse (cdr (reverse l2)))
+
+    
     let rec add' list1 list2 carry = match (list1, list2, carry) with
         | list1, [], 0       -> list1
         | [], list2, 0       -> list2
         | list1, [], carry   -> add' list1 [carry] 0
         | [], list2, carry   -> add' [carry] list2 0
         | car1::cdr1, car2::cdr2, carry ->
-          let sum = car1 + car2 + carry
-          in  sum mod radix :: add' cdr1 cdr2 (sum / radix)
+            let sum = car1 + car2 + carry
+            in  sum mod radix :: add' cdr1 cdr2 (sum / radix)
+
+    let rec sub' list1 list2 carry = match (list1, list2, carry) with
+        | list1, [], 0       -> list1
+        | [], list2, 0       -> ()
+        | list1, [], carry   -> sub' list1 [carry] 0
+        | [], list2, carry   -> ()
+        | car1::cdr1, car2::cdr2, carry ->
+            if carry = 1 then sub' ((car1 - carry)::cdr1) list2 0
+            else
+                let diff = car1 - car2 in
+                if diff < 0 then (diff + 10) :: sub' cdr1 cdr2 1
+                else diff::(sub' cdr1 cdr2 0)
 
     let add (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
-        if neg1 = neg2
-        then Bigint (neg1, add' value1 value2 0)
+        if neg1 = neg2 then Bigint (neg1, add' value1 value2 0)
+        else if (cmp' value1 value2) > 0 then Bigint (neg1, (sub' value1 value2 0))
+        else if (cmp' value1 value2) < 0 then Bigint (neg2, (sub' value2 value1 0))
         else zero
 
-    let sub = add
+
+    let sub (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
+        if neg1 = neg2 then Bigint (neg1, add' value1 value2 0)
+        else if (cmp' value1 value2) > 0 then Bigint (neg1, (sub' value1 value2 0))
+        else if (cmp' value1 value2) < 0 then Bigint (neg2, (sub' value2 value1 0))
+        else zero
 
     let mul = add
 
@@ -69,6 +110,19 @@ module Bigint = struct
     let rem = add
 
     let pow = add
+        (*
+    let even number = number mod 2 = 0
+
+    let rec pow' (base, expt, result) = match expt with
+        | 0                   -> result
+        | expt when even expt -> pow' (base *. base, expt / 2, result)
+        | expt                -> pow' (base, expt - 1, base *. result)
+
+    let pow (base, expt) =
+        if expt < 0 then pow' (1. /. base, - expt, 1.)
+                    else pow' (base, expt, 1.)
+
+                    *)
 
 end
 
