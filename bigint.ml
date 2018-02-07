@@ -34,7 +34,7 @@ module Bigint = struct
                 map digit (reverse (charlist_of_string substr))
             in  if   len = 0
                 then zero
-                else if   str.[0] = '_'
+                else if   str.[0] = '_' 
                      then Bigint (Neg, to_intlist 1)
                      else Bigint (Pos, to_intlist 0)
 
@@ -57,23 +57,16 @@ module Bigint = struct
                         | car, cdr' -> car::cdr'
         in trimzeros' list
     
-    let rec cmp' (l1 : int list) (l2 : int list) = 
-        if List.length l1 < List.length l2 then -1
-        else if List.length l1 > List.length l2 then 1
-        else match (l1, l2) with
+    let rec cmp' (list1 : int list) (list2 : int list) = 
+        if List.length list1 < List.length list2 then -1
+        else if List.length list1 > List.length list2 then 1
+        else match (list1, list2) with
             | [], [] -> 0
-            | [], l2 -> -1
-            | l1, [] -> 1
-            | l1, l2 ->
-                let rev1 = reverse l1 in
-                let rev2 = reverse l2 in
-                if car rev1 < car rev2 then -1
-                else if car rev1 > car rev2 then 1
-                (* revert tails to original order for recursion *)
-                else cmp' (reverse (cdr rev1)) (reverse (cdr rev2)) 
+            | [], list2 -> -1
+            | list1, [] -> 1
+            | list1, list2 -> if car list1 > car list2
 
-    
-    let rec add' (list1 : int list) (list2 : int list) (carry : int) = 
+    let rec add' (list1 : int list) (list2 : int list) carry = 
         match (list1, list2, carry) with
         | list1, [], 0       -> list1
         | [], list2, 0       -> list2
@@ -83,15 +76,11 @@ module Bigint = struct
             let sum = car1 + car2 + carry
             in  sum mod radix :: add' cdr1 cdr2 (sum / radix)
 
-    let rec sub' (list1 : int list) (list2 : int list) (carry : int) = 
+    let rec sub' (list1 : int list) (list2 : int list) carry = 
         match (list1, list2, carry) with
         | list1, [], 0       -> list1
         | [], list2, _       -> list2
-        | list1, [], carry   -> 
-            let dif = (car list1) - carry in
-            let cdr1 = cdr list1 in
-            if dif >= 0  then dif::cdr1
-            else (dif + 10) :: sub' cdr1 [] 1
+        | list1, [], carry   -> sub' list1 [carry] 0
         | car1::cdr1, car2::cdr2, carry ->
             if carry = 1 then 
                 sub' ((car1 - carry)::cdr1) list2 0
@@ -127,28 +116,22 @@ module Bigint = struct
                     Bigint (Pos, trimzeros (sub' value2 value1 0))
                 else zero
         else Bigint (neg1, add' value1 value2 0)
-
-    let double number = add number number
+    
+    let double number = add' number number 0
 
     let rec mul' (multiplier, powerof2, multiplicand') =
-        if powerof2 > multiplier
-        then multiplier, 0
+        if cmp' powerof2 multiplier > 0
+        then multiplier, []
         else let remainder, product =
-                mul' (multiplier, double powerof2, double multiplicand')
-            in  if remainder < powerof2
-                then remainder, product
-                else remainder - powerof2, product + multiplicand'
-
-    let rec mul' smaller powerof2 larger =
-        if cmp > 0 then smaller, 0
-        else let remainder, product = 
-                mul' (smaller, (add' powerof2 powerof2 0), (add' larger larger 0))
-             in  if remainder < p
-        add 
-
+                    mul' (multiplier, (double powerof2), (double multiplicand'))
+                in  if cmp' remainder powerof2 = -1
+                    then remainder, product
+                    else trimzeros (sub' remainder powerof2 0), (add' product multiplicand' 0)
+    
     let mul (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
-        if neg1 = neg2 then Bigint (Pos, mul' value1 1 value2)
-        else Bigint (Neg, mul' value1 1 value2)
+        let _, product = mul' (value1, [1], value2) in
+        if neg1 = neg2 then (Bigint (Pos, product))
+        else (Bigint (Neg, product))
 
     let div = add
 
