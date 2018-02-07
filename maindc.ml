@@ -17,18 +17,21 @@ type binop_t = bigint -> bigint -> bigint
 let print_number number = 
     let strnum = (string_of_bigint number) in
     let len = (String.length strnum) in
-    if len < 69
-    then printf "%s\n%!" (string_of_bigint number)
-    else let rec print_number' i = 
+    if len < 69 then printf "%s\n%!" (string_of_bigint number)
+    (* if larger than 69 chars, print chunks of 69 chars recursively *)
+    else 
+        let rec print_number' i = 
             let rem_size = len - i in
             if rem_size >= 69
-            then (printf "%s\\\n%!" (String.sub strnum i 69); print_number' (i + 69))
+            then 
+                (printf "%s\\\n%!" (String.sub strnum i 69);
+                print_number' (i + 69))
             else (printf "%s\n%!" (String.sub strnum i rem_size))
-         in print_number' 0
+            in print_number' 0
 
 
 
-let print_stackempty () = printf "stack empty\n%!"
+let print_stackempty () = printf "dc: stack empty\n%!"
 
 let executereg (thestack: stack_t) (oper: char) (reg: int) =
     try match oper with
@@ -75,7 +78,7 @@ let toploop (thestack: stack_t) inputchannel =
                  | Operator oper       -> execute thestack oper
                  );
              toploop ()
-        with End_of_file -> printf "End_of_file\n%!";
+        with End_of_file -> ();
     in  toploop ()
 
 let readfiles () =

@@ -64,12 +64,17 @@ module Bigint = struct
             | [], [] -> 0
             | [], l2 -> -1
             | l1, [] -> 1
-            | l1, l2 -> if car (reverse l1) < car (reverse l2) then -1
-                        else if car (reverse l1) > car (reverse l2) then 1
-                        else cmp' (reverse (cdr (reverse l1))) (reverse (cdr (reverse l2)))
+            | l1, l2 ->
+                let rev1 = reverse l1 in
+                let rev2 = reverse l2 in
+                if car rev1 < car rev2 then -1
+                else if car rev1 > car rev2 then 1
+                (* revert tails to original order for recursion *)
+                else cmp' (reverse (cdr rev1)) (reverse (cdr rev2)) 
 
     
-    let rec add' list1 list2 carry = match (list1, list2, carry) with
+    let rec add' (list1 : int list) (list2 : int list) (carry : int) = 
+        match (list1, list2, carry) with
         | list1, [], 0       -> list1
         | [], list2, 0       -> list2
         | list1, [], carry   -> add' list1 [carry] 0
@@ -78,32 +83,72 @@ module Bigint = struct
             let sum = car1 + car2 + carry
             in  sum mod radix :: add' cdr1 cdr2 (sum / radix)
 
-    let rec sub' list1 list2 carry = match (list1, list2, carry) with
+    let rec sub' (list1 : int list) (list2 : int list) (carry : int) = 
+        match (list1, list2, carry) with
         | list1, [], 0       -> list1
-        | [], list2, 0       -> ()
-        | list1, [], carry   -> sub' list1 [carry] 0
-        | [], list2, carry   -> ()
+        | [], list2, _       -> list2
+        | list1, [], carry   -> 
+            let dif = (car list1) - carry in
+            let cdr1 = cdr list1 in
+            if dif >= 0  then dif::cdr1
+            else (dif + 10) :: sub' cdr1 [] 1
         | car1::cdr1, car2::cdr2, carry ->
-            if carry = 1 then sub' ((car1 - carry)::cdr1) list2 0
+            if carry = 1 then 
+                sub' ((car1 - carry)::cdr1) list2 0
             else
                 let diff = car1 - car2 in
-                if diff < 0 then (diff + 10) :: sub' cdr1 cdr2 1
-                else diff::(sub' cdr1 cdr2 0)
+                if diff >= 0 then diff::(sub' cdr1 cdr2 0) 
+                else (diff + 10) :: sub' cdr1 cdr2 1
 
     let add (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
-        if neg1 = neg2 then Bigint (neg1, add' value1 value2 0)
-        else if (cmp' value1 value2) > 0 then Bigint (neg1, (sub' value1 value2 0))
-        else if (cmp' value1 value2) < 0 then Bigint (neg2, (sub' value2 value1 0))
+        let cmp = cmp' value1 value2 in
+        if neg1 = neg2 then 
+            Bigint (neg1, add' value1 value2 0)
+        else if cmp > 0 then 
+            Bigint (neg1, (sub' value1 value2 0))
+        else if cmp < 0 then 
+            Bigint (neg2, (sub' value2 value1 0))
         else zero
 
 
     let sub (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
-        if neg1 = neg2 then Bigint (neg1, add' value1 value2 0)
-        else if (cmp' value1 value2) > 0 then Bigint (neg1, (sub' value1 value2 0))
-        else if (cmp' value1 value2) < 0 then Bigint (neg2, (sub' value2 value1 0))
-        else zero
+        let cmp = cmp' value1 value2 in
+        if neg1 = neg2 then 
+            if neg1 = Pos then
+                if cmp > 0 then 
+                    Bigint (Pos, trimzeros (sub' value1 value2 0))
+                else if cmp < 0 then 
+                    Bigint (Neg, trimzeros (sub' value2 value1 0))
+                else zero
+            else 
+                if cmp > 0 then 
+                    Bigint (Neg, trimzeros (sub' value1 value2 0))
+                else if cmp < 0 then 
+                    Bigint (Pos, trimzeros (sub' value2 value1 0))
+                else zero
+        else Bigint (neg1, add' value1 value2 0)
 
-    let mul = add
+    let double number = add number number
+
+    let rec mul' (multiplier, powerof2, multiplicand') =
+        if powerof2 > multiplier
+        then multiplier, 0
+        else let remainder, product =
+                mul' (multiplier, double powerof2, double multiplicand')
+            in  if remainder < powerof2
+                then remainder, product
+                else remainder - powerof2, product + multiplicand'
+
+    let rec mul' smaller powerof2 larger =
+        if cmp > 0 then smaller, 0
+        else let remainder, product = 
+                mul' (smaller, (add' powerof2 powerof2 0), (add' larger larger 0))
+             in  if remainder < p
+        add 
+
+    let mul (Bigint (neg1, value1)) (Bigint (neg2, value2)) =
+        if neg1 = neg2 then Bigint (Pos, mul' value1 1 value2)
+        else Bigint (Neg, mul' value1 1 value2)
 
     let div = add
 
